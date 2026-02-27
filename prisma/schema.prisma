@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Upload {
+  id                  String   @id @default(cuid())
+  fileName            String
+  uploadDate          DateTime @default(now())
+  discountAmount      Float
+  totalCost           Float
+  totalExtraCost      Float
+  totalNubiavilleCost Float
+  orderCount          Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  orders              Order[]
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  uploadId        String
+  name            String
+  nickname        String
+  email           String
+  vendor          String
+  foodItems       String   // JSON string of all selected food items
+  totalCost       Float
+  discountAmount  Float
+  extraCost       Float
+  nubiavilleCost  Float
+  startTime       String?
+  completionTime  String?
+  upload          Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@index([uploadId])
+  @@index([vendor])
+  @@index([name])
+}
