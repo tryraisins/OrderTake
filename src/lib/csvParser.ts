@@ -10,9 +10,7 @@ const FOOD_COLUMNS = [
   "Select a Main Meal",
   "Choose a Shawarma",
   "What Type of Rice",
-  "What Type of Rice ",
   "Choose a Shawarma (Optional)",
-  "Choose a Shawarma (Optional) ",
   "Choose a Side (Optional)",
   "More Side Options (Optional)",
   "Choose an Extra",
@@ -81,7 +79,12 @@ export function parseRawData(
   let grandTotalExtra = 0;
   let grandTotalNubiaville = 0;
 
-  for (const row of data) {
+  for (const rawRow of data) {
+    const row: Record<string, any> = {};
+    for (const key in rawRow) {
+      row[key.trim()] = rawRow[key];
+    }
+
     // Skip rows without an Id (these are totals rows or empty)
     const id = (row["Id"]?.toString() || "").trim();
     if (!id || id === "") continue;
