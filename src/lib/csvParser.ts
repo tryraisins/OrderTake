@@ -81,7 +81,7 @@ export function parseRawData(
 
   for (const row of data) {
     // Skip rows without an Id (these are totals rows or empty)
-    const id = row["Id"]?.trim();
+    const id = (row["Id"]?.toString() || "").trim();
     if (!id || id === "") continue;
 
     const name = (row["Name"]?.toString() || "").trim();
