@@ -12,7 +12,19 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import gsap from 'gsap';
+import * as xlsx from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { toast } from 'sonner';
+import { DownloadIcon } from 'lucide-react';
 
 export interface OrderRow {
     id: string;
@@ -73,6 +85,111 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
         }
     }, [orders]);
 
+    const handleCopyClipboard = () => {
+        if (orders.length === 0) return;
+
+        const headers = ['#', 'Name', 'Nickname', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost'];
+        const rows = orders.map((o, i) => [
+            i + 1,
+            o.name,
+            o.nickname,
+            o.vendor,
+            parseFoodItemsDisplay(o.foodItems),
+            o.totalCost,
+            o.discountAmount,
+            o.extraCost,
+            o.nubiavilleCost
+        ]);
+
+        const text = [
+            headers.join('\t'),
+            ...rows.map(r => r.join('\t')),
+            ['TOTALS', '', '', '', '', totalCost, '', totalExtraCost, totalNubiavilleCost].join('\t')
+        ].join('\n');
+
+        navigator.clipboard.writeText(text).then(() => {
+            toast.success('Copied to clipboard');
+        }).catch(err => {
+            console.error('Failed to copy', err);
+            toast.error('Failed to copy to clipboard');
+        });
+    };
+
+    const handleExportExcel = () => {
+        if (orders.length === 0) return;
+
+        const data: any[] = orders.map((o, i) => ({
+            '#': i + 1,
+            'Name': o.name,
+            'Nickname': o.nickname,
+            'Vendor': o.vendor,
+            'Food Items': parseFoodItemsDisplay(o.foodItems),
+            'Total Cost': o.totalCost,
+            'Discount': o.discountAmount,
+            'Extra Cost': o.extraCost,
+            'Nubiaville Cost': o.nubiavilleCost
+        }));
+
+        data.push({
+            '#': 'TOTALS',
+            'Name': '',
+            'Nickname': '',
+            'Vendor': '',
+            'Food Items': '',
+            'Total Cost': totalCost,
+            'Discount': '' as any,
+            'Extra Cost': totalExtraCost,
+            'Nubiaville Cost': totalNubiavilleCost
+        });
+
+        const worksheet = xlsx.utils.json_to_sheet(data);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Orders');
+
+        xlsx.writeFile(workbook, 'TGIF_Orders.xlsx');
+        toast.success('Exported to Excel');
+    };
+
+    const handleExportPDF = () => {
+        if (orders.length === 0) return;
+
+        const doc = new jsPDF('landscape');
+
+        const headers = [['#', 'Name', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost']];
+        const data = orders.map((o, i) => [
+            i + 1,
+            `${o.name}${o.nickname && o.nickname !== o.name ? ` (${o.nickname})` : ''}`,
+            o.vendor,
+            parseFoodItemsDisplay(o.foodItems),
+            formatCurrency(o.totalCost),
+            formatCurrency(o.discountAmount),
+            formatCurrency(o.extraCost),
+            formatCurrency(o.nubiavilleCost)
+        ]);
+
+        data.push([
+            'TOTALS', '', '', '',
+            formatCurrency(totalCost),
+            '',
+            formatCurrency(totalExtraCost),
+            formatCurrency(totalNubiavilleCost)
+        ]);
+
+        autoTable(doc, {
+            head: headers,
+            body: data,
+            theme: 'striped',
+            headStyles: { fillColor: [41, 128, 185] },
+            styles: { fontSize: 8 },
+            columnStyles: {
+                3: { cellWidth: 80 } // wrap food items
+            }
+        });
+
+        doc.save('TGIF_Orders.pdf');
+        toast.success('Exported to PDF');
+    };
+
     if (orders.length === 0) {
         return (
             <Card className="p-12 text-center border-border/50 bg-card/80 backdrop-blur-sm">
@@ -100,6 +217,25 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                     <Badge variant="secondary" className="font-mono text-xs">{formatCurrency(discountAmount)}</Badge>
                 </div>
                 <div className="ml-auto flex items-center gap-4">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 gap-1 ml-2 interactive">
+                                <DownloadIcon className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Export</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={handleCopyClipboard} className="interactive">
+                                Copy to Clipboard
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportExcel} className="interactive">
+                                Export as Excel (.xlsx)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportPDF} className="interactive">
+                                Export as PDF
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     <div className="text-right">
                         <p className="text-xs text-muted-foreground">Total Cost</p>
                         <p className="font-mono font-bold text-sm">{formatCurrency(totalCost)}</p>
@@ -135,8 +271,8 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                             <TableRow
                                 key={order.id}
                                 className={`border-border/30 transition-colors ${order.extraCost > 0
-                                        ? 'bg-amber/5 hover:bg-amber/10'
-                                        : 'hover:bg-accent/30'
+                                    ? 'bg-amber/5 hover:bg-amber/10'
+                                    : 'hover:bg-accent/30'
                                     }`}
                             >
                                 <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>

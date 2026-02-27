@@ -64,22 +64,22 @@ export function CsvUploader({ onUploadComplete }: CsvUploaderProps) {
         setIsDragging(false);
 
         const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile && droppedFile.name.toLowerCase().endsWith('.csv')) {
+        if (droppedFile && (droppedFile.name.toLowerCase().endsWith('.csv') || droppedFile.name.toLowerCase().endsWith('.xlsx'))) {
             setFile(droppedFile);
             if (dropZoneRef.current) {
                 gsap.fromTo(dropZoneRef.current, { scale: 0.98 }, { scale: 1, duration: 0.3, ease: 'back.out(2)' });
             }
             toast.success('File ready', { description: droppedFile.name });
         } else {
-            toast.error('Invalid file', { description: 'Please upload a CSV file' });
+            toast.error('Invalid file', { description: 'Please upload a CSV or Excel file' });
         }
     }, []);
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
-                toast.error('Invalid file', { description: 'Please upload a CSV file' });
+            if (!selectedFile.name.toLowerCase().endsWith('.csv') && !selectedFile.name.toLowerCase().endsWith('.xlsx')) {
+                toast.error('Invalid file', { description: 'Please upload a CSV or Excel file' });
                 return;
             }
             if (selectedFile.size > 5 * 1024 * 1024) {
@@ -145,7 +145,7 @@ export function CsvUploader({ onUploadComplete }: CsvUploaderProps) {
                         Import Food Orders
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Upload a CSV file to calculate and track food costs
+                        Upload a CSV or Excel file to calculate and track food costs
                     </p>
                 </div>
 
@@ -171,10 +171,10 @@ export function CsvUploader({ onUploadComplete }: CsvUploaderProps) {
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".csv"
+                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                         onChange={handleFileSelect}
                         className="hidden"
-                        aria-label="Select CSV file"
+                        aria-label="Select CSV or Excel file"
                     />
 
                     {file ? (
@@ -210,7 +210,7 @@ export function CsvUploader({ onUploadComplete }: CsvUploaderProps) {
                             </div>
                             <div className="text-center">
                                 <p className="text-sm font-medium text-foreground">
-                                    Drop your CSV file here
+                                    Drop your CSV or Excel file here
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                     or click to browse • Max 5MB

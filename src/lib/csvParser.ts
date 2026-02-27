@@ -61,29 +61,42 @@ export function parseCSVContent(
     }
   }
 
+  return parseRawData(
+    parsed.data as Record<string, string>[],
+    discountAmount,
+    errors,
+  );
+}
+
+export function parseRawData(
+  data: Record<string, any>[],
+  discountAmount: number,
+  initialErrors: string[] = [],
+): ParseResult {
+  const errors = [...initialErrors];
   const orders: ParsedOrder[] = [];
   let grandTotalCost = 0;
   let grandTotalExtra = 0;
   let grandTotalNubiaville = 0;
 
-  for (const row of parsed.data as Record<string, string>[]) {
+  for (const row of data) {
     // Skip rows without an Id (these are totals rows or empty)
     const id = row["Id"]?.trim();
     if (!id || id === "") continue;
 
-    const name = row["Name"]?.trim() || "";
-    const nickname = row["Name1"]?.trim() || "";
-    const email = row["Email"]?.trim() || "";
-    const vendor = row["Choose Your Food Vendor"]?.trim() || "";
-    const startTime = row["Start time"]?.trim() || "";
-    const completionTime = row["Completion time"]?.trim() || "";
+    const name = (row["Name"]?.toString() || "").trim();
+    const nickname = (row["Name1"]?.toString() || "").trim();
+    const email = (row["Email"]?.toString() || "").trim();
+    const vendor = (row["Choose Your Food Vendor"]?.toString() || "").trim();
+    const startTime = (row["Start time"]?.toString() || "").trim();
+    const completionTime = (row["Completion time"]?.toString() || "").trim();
 
     // Parse all food columns and calculate total
     const foodItems: { column: string; items: string[]; cost: number }[] = [];
     let rowTotal = 0;
 
     for (const col of FOOD_COLUMNS) {
-      const cellValue = row[col]?.trim() || "";
+      const cellValue = (row[col]?.toString() || "").trim();
       if (cellValue) {
         const parsed = parseFoodCell(cellValue);
         if (parsed.items.length > 0) {

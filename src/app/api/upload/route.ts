@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseCSVContent } from "@/lib/csvParser";
+import { parseCSVContent, parseRawData } from "@/lib/csvParser";
+import * as xlsx from "xlsx";
 import prisma from "@/lib/db";
 import { MAX_FILE_SIZE } from "@/lib/security/validation";
 
@@ -21,9 +22,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!file.name.toLowerCase().endsWith(".csv")) {
+    if (
+      !file.name.toLowerCase().endsWith(".csv") &&
+      !file.name.toLowerCase().endsWith(".xlsx")
+    ) {
       return NextResponse.json(
-        { error: "Only CSV files are allowed" },
+        { error: "Only CSV and Excel files are allowed" },
         { status: 400 },
       );
     }
@@ -41,13 +45,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse CSV
-    const csvText = await file.text();
-    if (!csvText.trim()) {
-      return NextResponse.json({ error: "CSV file is empty" }, { status: 400 });
-    }
+    // Parse file content
+    let parseResult;
 
-    const parseResult = parseCSVContent(csvText, discountAmount);
+    if (file.name.toLowerCase().endsWith(".csv")) {
+      const csvText = await file.text();
+      if (!csvText.trim()) {
+        return NextResponse.json(
+          { error: "CSV file is empty" },
+          { status: 400 },
+        );
+      }
+      parseResult = parseCSVContent(csvText, discountAmount);
+    } else {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = xlsx.read(arrayBuffer, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rawData = xlsx.utils.sheet_to_json<Record<string, any>>(worksheet);
+
+      if (rawData.length === 0) {
+        return NextResponse.json(
+          { error: "Excel file is empty or formatted incorrectly" },
+          { status: 400 },
+        );
+      }
+      parseResult = parseRawData(rawData, discountAmount);
+    }
 
     if (parseResult.orders.length === 0) {
       return NextResponse.json(
