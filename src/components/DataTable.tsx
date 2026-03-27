@@ -98,7 +98,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
             const existing = groups.get(key);
             if (existing) {
                 existing.totalCost += order.totalCost;
-                existing.discountAmount += order.discountAmount;
+                // discount stays fixed — it's a per-person rate, not per-order
                 existing.extraCost += order.extraCost;
                 existing.nubiavilleCost += order.nubiavilleCost;
                 if (!existing.vendors.includes(order.vendor)) existing.vendors.push(order.vendor);
@@ -145,32 +145,39 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
         }
     }, [displayedOrders]);
 
-    const handleCopyClipboard = () => {
+    const handleCopyAsTable = () => {
         if (groupedOrders.length === 0) return;
 
-        const headers = ['#', 'Nickname', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost'];
-        const rows = groupedOrders.map((o, i) => [
-            i + 1,
-            o.nickname,
-            o.vendors.join(', '),
-            o.foodItemsDisplay,
-            o.totalCost,
-            o.discountAmount,
-            o.extraCost,
-            o.nubiavilleCost
-        ]);
+        const th = (v: string) => `<th style="border:1px solid #ccc;padding:6px 10px;background:#f0f0f0;font-weight:bold">${v}</th>`;
+        const td = (v: string | number) => `<td style="border:1px solid #ccc;padding:6px 10px">${v}</td>`;
 
-        const text = [
-            headers.join('\t'),
-            ...rows.map(r => r.join('\t')),
-            ['TOTALS', '', '', '', totalCost, '', totalExtraCost, totalNubiavilleCost].join('\t')
-        ].join('\n');
+        const headerRow = `<tr>${['#','Nickname','Vendor','Food Items','Total Cost','Discount','Extra Cost','Nubiaville Cost'].map(th).join('')}</tr>`;
 
-        navigator.clipboard.writeText(text).then(() => {
-            toast.success('Copied to clipboard');
+        const bodyRows = groupedOrders.map((o: GroupedOrder, i: number) => `<tr>
+            ${td(i + 1)}${td(o.nickname)}${td(o.vendors.join(', '))}${td(o.foodItemsDisplay)}
+            ${td(formatCurrency(o.totalCost))}${td(formatCurrency(o.discountAmount))}
+            ${td(formatCurrency(o.extraCost))}${td(formatCurrency(o.nubiavilleCost))}
+        </tr>`).join('');
+
+        const footRow = `<tr>
+            <td colspan="4" style="border:1px solid #ccc;padding:6px 10px;font-weight:bold">TOTALS</td>
+            ${td(formatCurrency(totalCost))}<td style="border:1px solid #ccc;padding:6px 10px">—</td>
+            ${td(formatCurrency(totalExtraCost))}${td(formatCurrency(totalNubiavilleCost))}
+        </tr>`;
+
+        const html = `<table style="border-collapse:collapse;font-family:sans-serif;font-size:13px">
+            <thead>${headerRow}</thead>
+            <tbody>${bodyRows}</tbody>
+            <tfoot>${footRow}</tfoot>
+        </table>`;
+
+        navigator.clipboard.write([
+            new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) })
+        ]).then(() => {
+            toast.success('Table copied — paste into Excel, Sheets, or Word');
         }).catch(err => {
             console.error('Failed to copy', err);
-            toast.error('Failed to copy to clipboard');
+            toast.error('Failed to copy table');
         });
     };
 
@@ -309,8 +316,8 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem onClick={handleCopyClipboard} className="interactive">
-                                Copy to Clipboard
+                            <DropdownMenuItem onClick={handleCopyAsTable} className="interactive">
+                                Copy as Table
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={handleExportExcel} className="interactive">
                                 Export as Excel (.xlsx)
