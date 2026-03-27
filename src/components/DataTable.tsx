@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import {
     Table,
     TableBody,
@@ -24,7 +24,7 @@ import * as xlsx from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
-import { DownloadIcon } from 'lucide-react';
+import { DownloadIcon, FilterIcon } from 'lucide-react';
 
 export interface OrderRow {
     id: string;
@@ -64,10 +64,23 @@ function parseFoodItemsDisplay(foodItemsJson: string): string {
     }
 }
 
+function parseFoodItemsArray(foodItemsJson: string): string[] {
+    try {
+        const items = JSON.parse(foodItemsJson);
+        if (Array.isArray(items)) {
+            return items.flatMap((group: { items: string[]; }) => group.items || []);
+        }
+        return [foodItemsJson];
+    } catch {
+        return [foodItemsJson];
+    }
+}
+
 interface GroupedOrder {
     nickname: string;
     vendors: string[];
     foodItemsDisplay: string;
+    foodItemsList: string[];
     totalCost: number;
     discountAmount: number;
     extraCost: number;
@@ -90,11 +103,14 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                 if (!existing.vendors.includes(order.vendor)) existing.vendors.push(order.vendor);
                 const foodDisplay = parseFoodItemsDisplay(order.foodItems);
                 if (foodDisplay) existing.foodItemsDisplay += ', ' + foodDisplay;
+                existing.foodItemsList.push(...parseFoodItemsArray(order.foodItems));
             } else {
+                const foodList = parseFoodItemsArray(order.foodItems);
                 groups.set(key, {
                     nickname: key,
                     vendors: [order.vendor],
                     foodItemsDisplay: parseFoodItemsDisplay(order.foodItems),
+                    foodItemsList: foodList,
                     totalCost: order.totalCost,
                     discountAmount: order.discountAmount,
                     extraCost: order.extraCost,
