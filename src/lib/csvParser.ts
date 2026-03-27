@@ -52,7 +52,7 @@ export function parseCSVContent(
   const parsed = Papa.parse(csvText, {
     header: true,
     skipEmptyLines: true,
-    transformHeader: (header: string) => header.trim(),
+    transformHeader: (header: string) => header.replace(/\uFFFD/g, "").replace(/\s+/g, " ").trim(),
   });
 
   if (parsed.errors.length > 0) {
@@ -82,7 +82,7 @@ export function parseRawData(
   for (const rawRow of data) {
     const row: Record<string, any> = {};
     for (const key in rawRow) {
-      row[key.trim()] = rawRow[key];
+      row[key.replace(/\uFFFD/g, "").replace(/\s+/g, " ").trim()] = rawRow[key];
     }
 
     // Skip rows without an Id (these are totals rows or empty)
