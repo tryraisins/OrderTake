@@ -68,6 +68,21 @@ export default function UploadDetailPage() {
         return Array.from(vendorSet).sort();
     }, [upload]);
 
+    // Pre-calculate per-person extra cost based on all orders before any filtering
+    const personExtraCosts = useMemo(() => {
+        if (!upload) return new Map<string, number>();
+        const personTotals = new Map<string, number>();
+        for (const o of upload.orders) {
+            const key = o.nickname || o.name;
+            personTotals.set(key, (personTotals.get(key) || 0) + o.totalCost);
+        }
+        const extraCosts = new Map<string, number>();
+        for (const [key, total] of personTotals.entries()) {
+            extraCosts.set(key, Math.max(0, total - upload.discountAmount));
+        }
+        return extraCosts;
+    }, [upload]);
+
     const filteredOrders = useMemo(() => {
         if (!upload) return [];
         let orders = upload.orders;
@@ -86,19 +101,47 @@ export default function UploadDetailPage() {
         }
 
         if (extraCostFilter === 'yes') {
-            orders = orders.filter((o) => o.extraCost > 0);
+            orders = orders.filter((o) => {
+                const key = o.nickname || o.name;
+                return (personExtraCosts.get(key) || 0) > 0;
+            });
         } else if (extraCostFilter === 'no') {
-            orders = orders.filter((o) => o.extraCost === 0);
+            orders = orders.filter((o) => {
+                const key = o.nickname || o.name;
+                return (personExtraCosts.get(key) || 0) === 0;
+            });
         }
 
         return orders;
-    }, [upload, nameFilter, vendorFilter, extraCostFilter]);
+    }, [upload, nameFilter, vendorFilter, extraCostFilter, personExtraCosts]);
 
-    const filteredTotals = useMemo(() => ({
-        totalCost: filteredOrders.reduce((sum, o) => sum + o.totalCost, 0),
-        totalExtraCost: filteredOrders.reduce((sum, o) => sum + o.extraCost, 0),
-        totalNubiavilleCost: filteredOrders.reduce((sum, o) => sum + o.nubiavilleCost, 0),
-    }), [filteredOrders]);
+    const filteredTotals = useMemo(() => {
+        if (!upload) return { totalCost: 0, totalExtraCost: 0, totalNubiavilleCost: 0 };
+        
+        // Group the filtered orders
+        const personTotals = new Map<string, number>();
+        for (const o of filteredOrders) {
+            const key = o.nickname || o.name;
+            personTotals.set(key, (personTotals.get(key) || 0) + o.totalCost);
+        }
+        
+        let totalCost = 0;
+        let totalExtraCost = 0;
+        let totalNubiavilleCost = 0;
+        const discount = upload.discountAmount;
+        
+        for (const total of personTotals.values()) {
+            totalCost += total;
+            totalExtraCost += Math.max(0, total - discount);
+            totalNubiavilleCost += Math.min(total, discount);
+        }
+        
+        return {
+            totalCost,
+            totalExtraCost,
+            totalNubiavilleCost,
+        };
+    }, [filteredOrders, upload]);
 
     if (loading) {
         return (

@@ -34,6 +34,21 @@ export default function HomePage() {
     return Array.from(vendorSet).sort();
   }, [uploadData]);
 
+  // Pre-calculate per-person extra cost based on all orders before any filtering
+  const personExtraCosts = useMemo(() => {
+    if (!uploadData) return new Map<string, number>();
+    const personTotals = new Map<string, number>();
+    for (const o of uploadData.orders) {
+      const key = o.nickname || o.name;
+      personTotals.set(key, (personTotals.get(key) || 0) + o.totalCost);
+    }
+    const extraCosts = new Map<string, number>();
+    for (const [key, total] of personTotals.entries()) {
+      extraCosts.set(key, Math.max(0, total - uploadData.discountAmount));
+    }
+    return extraCosts;
+  }, [uploadData]);
+
   // Filter orders
   const filteredOrders = useMemo(() => {
     if (!uploadData) return [];
@@ -53,22 +68,48 @@ export default function HomePage() {
     }
 
     if (extraCostFilter === 'yes') {
-      orders = orders.filter((o) => o.extraCost > 0);
+      orders = orders.filter((o) => {
+        const key = o.nickname || o.name;
+        return (personExtraCosts.get(key) || 0) > 0;
+      });
     } else if (extraCostFilter === 'no') {
-      orders = orders.filter((o) => o.extraCost === 0);
+      orders = orders.filter((o) => {
+        const key = o.nickname || o.name;
+        return (personExtraCosts.get(key) || 0) === 0;
+      });
     }
 
     return orders;
-  }, [uploadData, nameFilter, vendorFilter, extraCostFilter]);
+  }, [uploadData, nameFilter, vendorFilter, extraCostFilter, personExtraCosts]);
 
-  // Recalculate totals for filtered view
+  // Recalculate totals for filtered view using grouped values
   const filteredTotals = useMemo(() => {
+    if (!uploadData) return { totalCost: 0, totalExtraCost: 0, totalNubiavilleCost: 0 };
+    
+    // Group the filtered orders
+    const personTotals = new Map<string, number>();
+    for (const o of filteredOrders) {
+      const key = o.nickname || o.name;
+      personTotals.set(key, (personTotals.get(key) || 0) + o.totalCost);
+    }
+    
+    let totalCost = 0;
+    let totalExtraCost = 0;
+    let totalNubiavilleCost = 0;
+    const discount = uploadData.discountAmount;
+    
+    for (const total of personTotals.values()) {
+      totalCost += total;
+      totalExtraCost += Math.max(0, total - discount);
+      totalNubiavilleCost += Math.min(total, discount);
+    }
+    
     return {
-      totalCost: filteredOrders.reduce((sum, o) => sum + o.totalCost, 0),
-      totalExtraCost: filteredOrders.reduce((sum, o) => sum + o.extraCost, 0),
-      totalNubiavilleCost: filteredOrders.reduce((sum, o) => sum + o.nubiavilleCost, 0),
+      totalCost,
+      totalExtraCost,
+      totalNubiavilleCost,
     };
-  }, [filteredOrders]);
+  }, [filteredOrders, uploadData]);
 
   return (
     <div className="space-y-8">

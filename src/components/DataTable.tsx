@@ -149,14 +149,14 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
     }, [displayedOrders]);
 
     const handleCopyAsTable = () => {
-        if (groupedOrders.length === 0) return;
+        if (displayedOrders.length === 0) return;
 
         const th = (v: string) => `<th style="border:1px solid #ccc;padding:6px 10px;background:#f0f0f0;font-weight:bold">${v}</th>`;
         const td = (v: string | number) => `<td style="border:1px solid #ccc;padding:6px 10px">${v}</td>`;
 
         const headerRow = `<tr>${['#','Nickname','Vendor','Food Items','Total Cost','Discount','Extra Cost','Nubiaville Cost'].map(th).join('')}</tr>`;
 
-        const bodyRows = groupedOrders.map((o: GroupedOrder, i: number) => `<tr>
+        const bodyRows = displayedOrders.map((o: GroupedOrder, i: number) => `<tr>
             ${td(i + 1)}${td(o.nickname)}${td(o.vendors.join(', '))}${td(o.foodItemsDisplay)}
             ${td(formatCurrency(o.totalCost))}${td(formatCurrency(o.discountAmount))}
             ${td(formatCurrency(o.extraCost))}${td(formatCurrency(o.nubiavilleCost))}
@@ -185,9 +185,9 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
     };
 
     const handleExportExcel = () => {
-        if (groupedOrders.length === 0) return;
+        if (displayedOrders.length === 0) return;
 
-        const data: any[] = groupedOrders.map((o: GroupedOrder, i: number) => ({
+        const data: any[] = displayedOrders.map((o: GroupedOrder, i: number) => ({
             '#': i + 1,
             'Nickname': o.nickname,
             'Vendor': o.vendors.join(', '),
@@ -218,12 +218,12 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
     };
 
     const handleExportPDF = () => {
-        if (groupedOrders.length === 0) return;
+        if (displayedOrders.length === 0) return;
 
         const doc = new jsPDF('landscape');
 
         const headers = [['#', 'Nickname', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost']];
-        const data = groupedOrders.map((o: GroupedOrder, i: number) => [
+        const data = displayedOrders.map((o: GroupedOrder, i: number) => [
             i + 1,
             o.nickname,
             o.vendors.join(', '),
@@ -258,9 +258,9 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
     };
 
     const handleExportWhatsApp = () => {
-        if (groupedOrders.length === 0) return;
+        if (displayedOrders.length === 0) return;
 
-        const lines = groupedOrders.map((o: GroupedOrder, i: number) => {
+        const lines = displayedOrders.map((o: GroupedOrder, i: number) => {
             const items = o.foodItemsList.join(' • ');
             return `${i + 1}. ${o.nickname}• ${items}`;
         });
@@ -413,14 +413,14 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                                 TOTALS
                             </TableCell>
                             <TableCell className="text-right font-mono text-sm font-bold">
-                                {formatCurrency(totalCost)}
+                                {formatCurrency(displayedOrders.reduce((sum: number, o: GroupedOrder) => sum + o.totalCost, 0))}
                             </TableCell>
                             <TableCell className="text-right font-mono text-sm text-muted-foreground">—</TableCell>
                             <TableCell className="text-right font-mono text-sm font-bold text-amber">
-                                {formatCurrency(totalExtraCost)}
+                                {formatCurrency(displayedOrders.reduce((sum: number, o: GroupedOrder) => sum + o.extraCost, 0))}
                             </TableCell>
                             <TableCell className="text-right font-mono text-sm font-bold text-success">
-                                {formatCurrency(totalNubiavilleCost)}
+                                {formatCurrency(displayedOrders.reduce((sum: number, o: GroupedOrder) => sum + o.nubiavilleCost, 0))}
                             </TableCell>
                         </TableRow>
                     </TableFooter>

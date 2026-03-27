@@ -79,6 +79,9 @@ export function parseRawData(
   let grandTotalExtra = 0;
   let grandTotalNubiaville = 0;
 
+  // Track totals per person for accurate extra cost calculation
+  const personTotals = new Map<string, number>();
+
   for (const rawRow of data) {
     const row: Record<string, any> = {};
     for (const key in rawRow) {
@@ -126,15 +129,22 @@ export function parseRawData(
       foodItems,
       totalCost: rowTotal,
       discountAmount,
+      // We still assign per-row naive costs here, but they are not used for grand totals
       extraCost,
       nubiavilleCost,
       startTime,
       completionTime,
     });
 
-    grandTotalCost += rowTotal;
-    grandTotalExtra += extraCost;
-    grandTotalNubiaville += nubiavilleCost;
+    const key = nickname || name;
+    personTotals.set(key, (personTotals.get(key) || 0) + rowTotal);
+  }
+
+  // Calculate accurate grand totals based on grouped per-person costs
+  for (const total of personTotals.values()) {
+    grandTotalCost += total;
+    grandTotalExtra += Math.max(0, total - discountAmount);
+    grandTotalNubiaville += Math.min(total, discountAmount);
   }
 
   return {
