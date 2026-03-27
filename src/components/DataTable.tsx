@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import {
     Table,
     TableBody,
@@ -64,8 +64,46 @@ function parseFoodItemsDisplay(foodItemsJson: string): string {
     }
 }
 
+interface GroupedOrder {
+    nickname: string;
+    vendors: string[];
+    foodItemsDisplay: string;
+    totalCost: number;
+    discountAmount: number;
+    extraCost: number;
+    nubiavilleCost: number;
+}
+
 export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCost, discountAmount }: DataTableProps) {
     const tableRef = useRef<HTMLDivElement>(null);
+
+    const groupedOrders = useMemo<GroupedOrder[]>(() => {
+        const groups = new Map<string, GroupedOrder>();
+        for (const order of orders) {
+            const key = order.nickname || order.name;
+            const existing = groups.get(key);
+            if (existing) {
+                existing.totalCost += order.totalCost;
+                existing.discountAmount += order.discountAmount;
+                existing.extraCost += order.extraCost;
+                existing.nubiavilleCost += order.nubiavilleCost;
+                if (!existing.vendors.includes(order.vendor)) existing.vendors.push(order.vendor);
+                const foodDisplay = parseFoodItemsDisplay(order.foodItems);
+                if (foodDisplay) existing.foodItemsDisplay += ', ' + foodDisplay;
+            } else {
+                groups.set(key, {
+                    nickname: key,
+                    vendors: [order.vendor],
+                    foodItemsDisplay: parseFoodItemsDisplay(order.foodItems),
+                    totalCost: order.totalCost,
+                    discountAmount: order.discountAmount,
+                    extraCost: order.extraCost,
+                    nubiavilleCost: order.nubiavilleCost,
+                });
+            }
+        }
+        return Array.from(groups.values());
+    }, [orders]);
 
     useEffect(() => {
         if (tableRef.current) {
@@ -83,18 +121,17 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                 }
             );
         }
-    }, [orders]);
+    }, [groupedOrders]);
 
     const handleCopyClipboard = () => {
-        if (orders.length === 0) return;
+        if (groupedOrders.length === 0) return;
 
-        const headers = ['#', 'Name', 'Nickname', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost'];
-        const rows = orders.map((o, i) => [
+        const headers = ['#', 'Nickname', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost'];
+        const rows = groupedOrders.map((o, i) => [
             i + 1,
-            o.name,
             o.nickname,
-            o.vendor,
-            parseFoodItemsDisplay(o.foodItems),
+            o.vendors.join(', '),
+            o.foodItemsDisplay,
             o.totalCost,
             o.discountAmount,
             o.extraCost,
@@ -104,7 +141,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
         const text = [
             headers.join('\t'),
             ...rows.map(r => r.join('\t')),
-            ['TOTALS', '', '', '', '', totalCost, '', totalExtraCost, totalNubiavilleCost].join('\t')
+            ['TOTALS', '', '', '', totalCost, '', totalExtraCost, totalNubiavilleCost].join('\t')
         ].join('\n');
 
         navigator.clipboard.writeText(text).then(() => {
@@ -116,14 +153,13 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
     };
 
     const handleExportExcel = () => {
-        if (orders.length === 0) return;
+        if (groupedOrders.length === 0) return;
 
-        const data: any[] = orders.map((o, i) => ({
+        const data: any[] = groupedOrders.map((o, i) => ({
             '#': i + 1,
-            'Name': o.name,
             'Nickname': o.nickname,
-            'Vendor': o.vendor,
-            'Food Items': parseFoodItemsDisplay(o.foodItems),
+            'Vendor': o.vendors.join(', '),
+            'Food Items': o.foodItemsDisplay,
             'Total Cost': o.totalCost,
             'Discount': o.discountAmount,
             'Extra Cost': o.extraCost,
@@ -132,7 +168,6 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
 
         data.push({
             '#': 'TOTALS',
-            'Name': '',
             'Nickname': '',
             'Vendor': '',
             'Food Items': '',
@@ -151,16 +186,16 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
     };
 
     const handleExportPDF = () => {
-        if (orders.length === 0) return;
+        if (groupedOrders.length === 0) return;
 
         const doc = new jsPDF('landscape');
 
-        const headers = [['#', 'Name', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost']];
-        const data = orders.map((o, i) => [
+        const headers = [['#', 'Nickname', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost']];
+        const data = groupedOrders.map((o, i) => [
             i + 1,
-            `${o.name}${o.nickname && o.nickname !== o.name ? ` (${o.nickname})` : ''}`,
-            o.vendor,
-            parseFoodItemsDisplay(o.foodItems),
+            o.nickname,
+            o.vendors.join(', '),
+            o.foodItemsDisplay,
             formatCurrency(o.totalCost),
             formatCurrency(o.discountAmount),
             formatCurrency(o.extraCost),
@@ -182,7 +217,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
             headStyles: { fillColor: [41, 128, 185] },
             styles: { fontSize: 8 },
             columnStyles: {
-                3: { cellWidth: 80 } // wrap food items
+                3: { cellWidth: 80 }
             }
         });
 
@@ -210,7 +245,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
             <div className="p-4 border-b border-border/50 flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Orders</span>
-                    <Badge variant="secondary" className="font-mono text-xs">{orders.length}</Badge>
+                    <Badge variant="secondary" className="font-mono text-xs">{groupedOrders.length}</Badge>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Discount</span>
@@ -257,7 +292,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                     <TableHeader>
                         <TableRow className="border-border/50 hover:bg-transparent">
                             <TableHead className="font-display font-semibold text-xs uppercase tracking-wider w-8">#</TableHead>
-                            <TableHead className="font-display font-semibold text-xs uppercase tracking-wider">Name</TableHead>
+                            <TableHead className="font-display font-semibold text-xs uppercase tracking-wider">Nickname</TableHead>
                             <TableHead className="font-display font-semibold text-xs uppercase tracking-wider">Vendor</TableHead>
                             <TableHead className="font-display font-semibold text-xs uppercase tracking-wider max-w-[300px]">Food Items</TableHead>
                             <TableHead className="font-display font-semibold text-xs uppercase tracking-wider text-right">Total Cost</TableHead>
@@ -267,9 +302,9 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {orders.map((order, index) => (
+                        {groupedOrders.map((order: GroupedOrder, index: number) => (
                             <TableRow
-                                key={order.id}
+                                key={order.nickname}
                                 className={`border-border/30 transition-colors ${order.extraCost > 0
                                     ? 'bg-amber/5 hover:bg-amber/10'
                                     : 'hover:bg-accent/30'
@@ -277,21 +312,18 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                             >
                                 <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell>
-                                    <div>
-                                        <p className="font-medium text-sm">{order.name}</p>
-                                        {order.nickname && order.nickname !== order.name && (
-                                            <p className="text-xs text-muted-foreground">{order.nickname}</p>
-                                        )}
-                                    </div>
+                                    <p className="font-medium text-sm">{order.nickname}</p>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="outline" className="text-xs font-medium">
-                                        {order.vendor}
-                                    </Badge>
+                                    <div className="flex flex-wrap gap-1">
+                                        {order.vendors.map(v => (
+                                            <Badge key={v} variant="outline" className="text-xs font-medium">{v}</Badge>
+                                        ))}
+                                    </div>
                                 </TableCell>
                                 <TableCell className="max-w-[300px]">
-                                    <p className="text-xs text-muted-foreground truncate" title={parseFoodItemsDisplay(order.foodItems)}>
-                                        {parseFoodItemsDisplay(order.foodItems)}
+                                    <p className="text-xs text-muted-foreground truncate" title={order.foodItemsDisplay}>
+                                        {order.foodItemsDisplay}
                                     </p>
                                 </TableCell>
                                 <TableCell className="text-right font-mono text-sm font-medium">
