@@ -89,6 +89,7 @@ interface GroupedOrder {
 
 export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCost, discountAmount }: DataTableProps) {
     const tableRef = useRef<HTMLDivElement>(null);
+    const [extraOnly, setExtraOnly] = useState(false);
 
     const groupedOrders = useMemo<GroupedOrder[]>(() => {
         const groups = new Map<string, GroupedOrder>();
@@ -121,6 +122,11 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
         return Array.from(groups.values());
     }, [orders]);
 
+    const displayedOrders = useMemo(
+        () => extraOnly ? groupedOrders.filter((o: GroupedOrder) => o.extraCost > 0) : groupedOrders,
+        [groupedOrders, extraOnly]
+    );
+
     useEffect(() => {
         if (tableRef.current) {
             const rows = tableRef.current.querySelectorAll('tbody tr');
@@ -137,7 +143,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                 }
             );
         }
-    }, [groupedOrders]);
+    }, [displayedOrders]);
 
     const handleCopyClipboard = () => {
         if (groupedOrders.length === 0) return;
@@ -241,6 +247,24 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
         toast.success('Exported to PDF');
     };
 
+    const handleExportWhatsApp = () => {
+        if (groupedOrders.length === 0) return;
+
+        const lines = groupedOrders.map((o: GroupedOrder, i: number) => {
+            const items = o.foodItemsList.join(' • ');
+            return `${i + 1}. ${o.nickname}• ${items}`;
+        });
+
+        const text = ['🍽️ FOOD ORDER', ...lines].join('\n');
+
+        navigator.clipboard.writeText(text).then(() => {
+            toast.success('WhatsApp order copied to clipboard');
+        }).catch(err => {
+            console.error('Failed to copy', err);
+            toast.error('Failed to copy to clipboard');
+        });
+    };
+
     if (orders.length === 0) {
         return (
             <Card className="p-12 text-center border-border/50 bg-card/80 backdrop-blur-sm">
@@ -261,8 +285,17 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
             <div className="p-4 border-b border-border/50 flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Orders</span>
-                    <Badge variant="secondary" className="font-mono text-xs">{groupedOrders.length}</Badge>
+                    <Badge variant="secondary" className="font-mono text-xs">{displayedOrders.length}</Badge>
                 </div>
+                <Button
+                    variant={extraOnly ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-8 gap-1 interactive"
+                    onClick={() => setExtraOnly((v: boolean) => !v)}
+                >
+                    <FilterIcon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Extra Cost Only</span>
+                </Button>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Discount</span>
                     <Badge variant="secondary" className="font-mono text-xs">{formatCurrency(discountAmount)}</Badge>
@@ -284,6 +317,9 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={handleExportPDF} className="interactive">
                                 Export as PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportWhatsApp} className="interactive">
+                                Copy as WhatsApp Text
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -318,7 +354,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {groupedOrders.map((order: GroupedOrder, index: number) => (
+                        {displayedOrders.map((order: GroupedOrder, index: number) => (
                             <TableRow
                                 key={order.nickname}
                                 className={`border-border/30 transition-colors ${order.extraCost > 0
