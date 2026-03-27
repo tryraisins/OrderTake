@@ -98,9 +98,6 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
             const existing = groups.get(key);
             if (existing) {
                 existing.totalCost += order.totalCost;
-                // discount stays fixed — it's a per-person rate, not per-order
-                existing.extraCost += order.extraCost;
-                existing.nubiavilleCost += order.nubiavilleCost;
                 if (!existing.vendors.includes(order.vendor)) existing.vendors.push(order.vendor);
                 const foodDisplay = parseFoodItemsDisplay(order.foodItems);
                 if (foodDisplay) existing.foodItemsDisplay += ', ' + foodDisplay;
@@ -114,10 +111,16 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
                     foodItemsList: foodList,
                     totalCost: order.totalCost,
                     discountAmount: order.discountAmount,
-                    extraCost: order.extraCost,
-                    nubiavilleCost: order.nubiavilleCost,
+                    extraCost: 0,
+                    nubiavilleCost: 0,
                 });
             }
+        }
+        // Recalculate extraCost and nubiavilleCost from merged totals.
+        // discount is a fixed per-person budget; nubiaville covers up to that amount.
+        for (const group of groups.values()) {
+            group.extraCost = Math.max(0, group.totalCost - group.discountAmount);
+            group.nubiavilleCost = Math.min(group.totalCost, group.discountAmount);
         }
         return Array.from(groups.values());
     }, [orders]);
@@ -184,7 +187,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
     const handleExportExcel = () => {
         if (groupedOrders.length === 0) return;
 
-        const data: any[] = groupedOrders.map((o, i) => ({
+        const data: any[] = groupedOrders.map((o: GroupedOrder, i: number) => ({
             '#': i + 1,
             'Nickname': o.nickname,
             'Vendor': o.vendors.join(', '),
@@ -220,7 +223,7 @@ export function DataTable({ orders, totalCost, totalExtraCost, totalNubiavilleCo
         const doc = new jsPDF('landscape');
 
         const headers = [['#', 'Nickname', 'Vendor', 'Food Items', 'Total Cost', 'Discount', 'Extra Cost', 'Nubiaville Cost']];
-        const data = groupedOrders.map((o, i) => [
+        const data = groupedOrders.map((o: GroupedOrder, i: number) => [
             i + 1,
             o.nickname,
             o.vendors.join(', '),
