@@ -43,6 +43,7 @@ export function CsvUploader({ onUploadComplete }: CsvUploaderProps) {
     const [discountAmount, setDiscountAmount] = useState<string>('7000');
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [columnErrors, setColumnErrors] = useState<{ missing: string[]; unknown: string[] } | null>(null);
     const dropZoneRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -118,8 +119,21 @@ export function CsvUploader({ onUploadComplete }: CsvUploaderProps) {
             const data = await res.json();
 
             if (!res.ok) {
-                toast.error('Upload failed', { description: data.error || 'Unknown error' });
+                if (data.columnErrors) {
+                    setColumnErrors(data.columnErrors);
+                    toast.error('Invalid file structure', { description: 'Check the column errors below' });
+                } else {
+                    toast.error('Upload failed', { description: data.error || 'Unknown error' });
+                }
                 return;
+            }
+
+            setColumnErrors(null);
+
+            if (data.warnings?.length > 0) {
+                for (const w of data.warnings) {
+                    toast.warning('File warning', { description: w });
+                }
             }
 
             toast.success('Upload successful!', {
@@ -238,6 +252,41 @@ export function CsvUploader({ onUploadComplete }: CsvUploaderProps) {
                         Amount Nubiaville covers per person. Default: ₦7,000
                     </p>
                 </div>
+
+                {/* Column validation errors */}
+                {columnErrors && (
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 space-y-3 text-sm">
+                        {columnErrors.missing.length > 0 && (
+                            <div>
+                                <p className="font-semibold text-destructive mb-1.5">Missing required columns</p>
+                                <ul className="space-y-1">
+                                    {columnErrors.missing.map((col) => (
+                                        <li key={col} className="flex items-center gap-2 text-muted-foreground">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-destructive flex-shrink-0" />
+                                            <code className="text-xs bg-destructive/10 text-destructive px-1.5 py-0.5 rounded">{col}</code>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        {columnErrors.unknown.length > 0 && (
+                            <div>
+                                <p className="font-semibold text-amber-600 dark:text-amber-400 mb-1.5">Unexpected columns (will be ignored)</p>
+                                <ul className="space-y-1">
+                                    {columnErrors.unknown.map((col) => (
+                                        <li key={col} className="flex items-center gap-2 text-muted-foreground">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                                            <code className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">{col}</code>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        <p className="text-xs text-muted-foreground pt-1 border-t border-destructive/20">
+                            Use the file format guide on the home page to see the expected column names.
+                        </p>
+                    </div>
+                )}
 
                 {/* Upload Button */}
                 <Button

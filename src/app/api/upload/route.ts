@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseCSVContent, parseRawData } from "@/lib/csvParser";
+import { parseCSVContent, parseRawData, validateColumns } from "@/lib/csvParser";
 import * as xlsx from "xlsx";
 import prisma from "@/lib/db";
 import { MAX_FILE_SIZE } from "@/lib/security/validation";
@@ -73,6 +73,24 @@ export async function POST(request: NextRequest) {
       parseResult = parseRawData(rawData, discountAmount);
     }
 
+    // Validate file columns
+    const columnValidation = validateColumns(parseResult.headers);
+    if (!columnValidation.valid) {
+      return NextResponse.json(
+        {
+          error: `Missing required columns: ${columnValidation.missingRequired.join(", ")}`,
+          columnErrors: {
+            missing: columnValidation.missingRequired,
+            unknown: columnValidation.unknownColumns,
+          },
+        },
+        { status: 400 },
+      );
+    }
+    const columnWarnings = columnValidation.unknownColumns.length > 0
+      ? [`Unexpected columns ignored: ${columnValidation.unknownColumns.join(", ")}`]
+      : [];
+
     if (parseResult.orders.length === 0) {
       return NextResponse.json(
         { error: "No valid orders found in CSV" },
@@ -121,7 +139,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       upload,
-      warnings: parseResult.errors,
+      warnings: [...parseResult.errors, ...columnWarnings],
     });
   } catch (error) {
     console.error("Upload error:", error);

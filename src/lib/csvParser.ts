@@ -5,8 +5,21 @@ import {
   calculateNubiavilleCost,
 } from "./costCalculator";
 
+export const REQUIRED_COLUMNS = [
+  "Id",
+  "Name",
+  "Name1",
+  "Email",
+  "Choose Your Food Vendor",
+];
+
+export const KNOWN_OPTIONAL_COLUMNS = [
+  "Start time",
+  "Completion time",
+];
+
 // The food-related columns from the CSV
-const FOOD_COLUMNS = [
+export const FOOD_COLUMNS = [
   "Select a Main Meal",
   "Choose a Shawarma",
   "What Type of Rice",
@@ -20,6 +33,30 @@ const FOOD_COLUMNS = [
   "Choose a Protein",
   "Choose a Side",
 ];
+
+export interface ColumnValidationResult {
+  valid: boolean;
+  missingRequired: string[];
+  unknownColumns: string[];
+}
+
+export function validateColumns(headers: string[]): ColumnValidationResult {
+  const normalized = headers.map((h) =>
+    h.replace(/�/g, "").replace(/\s+/g, " ").trim()
+  );
+  const allKnown = new Set([
+    ...REQUIRED_COLUMNS,
+    ...KNOWN_OPTIONAL_COLUMNS,
+    ...FOOD_COLUMNS,
+  ]);
+  const missingRequired = REQUIRED_COLUMNS.filter((c) => !normalized.includes(c));
+  const unknownColumns = normalized.filter((h) => h && !allKnown.has(h));
+  return {
+    valid: missingRequired.length === 0,
+    missingRequired,
+    unknownColumns,
+  };
+}
 
 export interface ParsedOrder {
   name: string;
@@ -41,6 +78,7 @@ export interface ParseResult {
   totalExtraCost: number;
   totalNubiavilleCost: number;
   errors: string[];
+  headers: string[];
 }
 
 export function parseCSVContent(
@@ -61,10 +99,12 @@ export function parseCSVContent(
     }
   }
 
+  const headers = (parsed.meta.fields || []) as string[];
   return parseRawData(
     parsed.data as Record<string, string>[],
     discountAmount,
     errors,
+    headers,
   );
 }
 
@@ -72,6 +112,7 @@ export function parseRawData(
   data: Record<string, any>[],
   discountAmount: number,
   initialErrors: string[] = [],
+  detectedHeaders?: string[],
 ): ParseResult {
   const errors = [...initialErrors];
   const orders: ParsedOrder[] = [];
@@ -153,5 +194,6 @@ export function parseRawData(
     totalExtraCost: grandTotalExtra,
     totalNubiavilleCost: grandTotalNubiaville,
     errors,
+    headers: detectedHeaders ?? (data.length > 0 ? Object.keys(data[0]) : []),
   };
 }

@@ -14,11 +14,34 @@ interface UploadData {
   orders: OrderRow[];
 }
 
+const COLUMN_GUIDE = [
+  { name: 'Id', required: true, description: 'Row identifier', example: '1' },
+  { name: 'Name', required: true, description: 'Full name', example: 'Oluwaseun Sowemimo' },
+  { name: 'Name1', required: true, description: 'Nickname / short name', example: 'Seun' },
+  { name: 'Email', required: true, description: 'Email address', example: 'seun@company.com' },
+  { name: 'Choose Your Food Vendor', required: true, description: 'Vendor name', example: 'Mama Mayowa' },
+  { name: 'Start time', required: false, description: 'Form start timestamp', example: '06/12/2025 10:00' },
+  { name: 'Completion time', required: false, description: 'Form completion timestamp', example: '06/12/2025 10:05' },
+  { name: 'Select a Main Meal', required: false, description: 'Main meal — format: Item - Price', example: 'Jollof Rice - 2000' },
+  { name: 'Choose a Shawarma', required: false, description: 'Shawarma selection', example: 'Chicken Shawarma - 1500' },
+  { name: 'What Type of Rice', required: false, description: 'Rice type selection', example: 'Fried Rice - 1800' },
+  { name: 'Choose a Shawarma (Optional)', required: false, description: 'Optional shawarma add-on', example: '' },
+  { name: 'Choose a Side (Optional)', required: false, description: 'Optional side dish', example: 'Plantain - 500' },
+  { name: 'More Side Options (Optional)', required: false, description: 'Additional side options', example: '' },
+  { name: 'Choose an Extra', required: false, description: 'Extra items / drinks', example: 'Drinks - 500' },
+  { name: 'Select a Main Meal1', required: false, description: 'Second vendor main meal', example: '4 Portions Fried Rice - 2300' },
+  { name: 'Select second Option', required: false, description: 'Second food option', example: '' },
+  { name: 'Select Combo (Optional)', required: false, description: 'Combo selection', example: '' },
+  { name: 'Choose a Protein', required: false, description: 'Protein choice', example: 'Hake Fish - 3500' },
+  { name: 'Choose a Side', required: false, description: 'Side dish', example: 'Plantain - 500' },
+];
+
 export default function HomePage() {
   const [uploadData, setUploadData] = useState<UploadData | null>(null);
   const [nameFilter, setNameFilter] = useState('');
   const [vendorFilter, setVendorFilter] = useState('all');
   const [extraCostFilter, setExtraCostFilter] = useState<'all' | 'yes' | 'no'>('all');
+  const [showGuide, setShowGuide] = useState(false);
 
   const handleUploadComplete = (result: { upload: UploadData; }) => {
     setUploadData(result.upload);
@@ -123,6 +146,85 @@ export default function HomePage() {
           Upload your TGIF food order CSV, calculate costs and discounts,
           and keep track of every penny.
         </p>
+      </div>
+
+      {/* File Format Guide */}
+      <div className="max-w-3xl mx-auto w-full">
+        <button
+          onClick={() => setShowGuide((s: boolean) => !s)}
+          className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors px-4 py-2.5 rounded-lg border border-border/50 bg-card/50 hover:bg-accent/30"
+        >
+          <span className="flex items-center gap-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="14,2 14,8 20,8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="16" y1="13" x2="8" y2="13" strokeLinecap="round" />
+              <line x1="16" y1="17" x2="8" y2="17" strokeLinecap="round" />
+            </svg>
+            Expected file format
+          </span>
+          <svg
+            width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            className={`transition-transform duration-200 ${showGuide ? 'rotate-180' : ''}`}
+          >
+            <polyline points="6,9 12,15 18,9" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {showGuide && (
+          <div className="mt-2 rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-border/40 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Column reference</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Food item cells use format <code className="bg-accent px-1 rounded">Item Name - Price</code>.
+                  Multiple items separated by semicolons.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-xs flex-shrink-0 pt-0.5">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary/70 inline-block" />Required</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-muted-foreground/40 inline-block" />Optional</span>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border/40 bg-accent/20">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground w-[38%]">Column name</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground w-[14%]">Type</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground w-[28%]">Description</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Example</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COLUMN_GUIDE.map((col, i) => (
+                    <tr
+                      key={col.name}
+                      className={`border-b border-border/20 last:border-0 ${i % 2 === 0 ? '' : 'bg-accent/10'}`}
+                    >
+                      <td className="px-4 py-2">
+                        <code className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${col.required ? 'bg-primary/10 text-primary' : 'bg-accent text-foreground'}`}>
+                          {col.name}
+                        </code>
+                      </td>
+                      <td className="px-3 py-2">
+                        {col.required ? (
+                          <span className="text-primary font-medium">Required</span>
+                        ) : (
+                          <span className="text-muted-foreground">Optional</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{col.description}</td>
+                      <td className="px-3 py-2 text-muted-foreground font-mono">
+                        {col.example || <span className="opacity-40">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Upload Section */}
